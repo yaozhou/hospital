@@ -2,7 +2,7 @@ import React, { Component } from 'react';
 import {Image, Navigator} from 'react-native';
 import { Container, Content, List, ListItem, Text, Header, Button, Icon, Title } from 'native-base';
 
-var ABOUT_TEXT = '如果你喜欢本软件, 请支持我给我们的小乐买个尿布吧,我将会持续升级制作更好用的版本\n\n 微信支付 '
+var ABOUT_TEXT = '如果你喜欢本软件, 请打赏给我们的小乐买个尿布吧,这将支持我持续升级制作更好用的版本\n\n 微信支付 '
 
 export default class Zan extends Component {     
 

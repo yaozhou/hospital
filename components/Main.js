@@ -1,6 +1,6 @@
 import React, {Component, Input  } from 'react';
 import {Linking, Image, Navigator, Alert, Platform} from 'react-native';
-import {Container, Content, List, ListItem, Text, Header, Button, Icon, Title, InputGroup} from 'native-base';
+import {View, Container, Content, List, ListItem, Text, Header, Button, Icon, Title, InputGroup} from 'native-base';
 import Options from './Options.js'
 import yihu from '../yihu'
 import store from 'react-native-cache-store';
@@ -8,6 +8,8 @@ import KeepAwake from 'react-native-keep-awake';
 import Moment from 'moment'
 import codePush from "react-native-code-push";
 import config from '../config.json' ;
+import Spinner from 'react-native-loading-spinner-overlay';
+
 
 //scp build/yuyue_0.1.0.apk yao@ali:/home/yao/web
 // http://115.29.164.142:8000/yuyue_0.1.0.apk
@@ -20,6 +22,7 @@ export default class Main extends Component {
         this.state = {
             interval : null,
             info : '',
+            loading : false,
         }
     }
 
@@ -66,7 +69,8 @@ export default class Main extends Component {
 
 
     
-    on_start() {                
+    on_start() {
+        this.setState({loading : true}) ;
         KeepAwake.activate() ;
 
         Promise.all([store.get('patient'), store.get('strategy'), store.get('doc_list'), store.get('name'), store.get('password'), store.get('interval')])
@@ -82,10 +86,11 @@ export default class Main extends Component {
                  yihu.try_login(r[3], r[4]).then(() => {
                         do_once() ;
                         let interval = setInterval(() => do_once(),  gap * 1000) ;
-                        this.setState({interval : interval}) ;
+                        this.setState({interval : interval, loading : false}) ;
                  }).catch(err => {
+                    this.setState({loading : false}) ;
                     Alert.alert('Error', '登陆失败,请检查网络连接和账号密码') ;
-                 })               
+                 })                 
             }
         }.bind(this))
     }
@@ -112,7 +117,7 @@ export default class Main extends Component {
                 <Content>
                         <Image                            
                             source={require('../res/bao.png')}
-                            style={{width : 380 ,height : 450}}
+                            style={{width : 380 ,height : 480}}
                           />
                         <Text>{this.state.info}</Text>
                         {
@@ -120,6 +125,9 @@ export default class Main extends Component {
                             <Button block onPress={this.on_start.bind(this)}> 开始 </Button> :
                             <Button block onPress={this.on_stop.bind(this)}> 结束 </Button>
                         }
+                <View style={{ flex: 1 }}>
+                        <Spinner visible={this.state.loading} textContent={"Loading..."} textStyle={{color: '#FFF'}} />
+                </View>
                 </Content>
             </Container>
         );
