@@ -9,6 +9,7 @@ import Moment from 'moment'
 import codePush from "react-native-code-push";
 import config from '../config.json' ;
 import Spinner from 'react-native-loading-spinner-overlay';
+import { remote_log, local_log } from './util'
 
 
 //scp build/yuyue_0.1.0.apk yao@ali:/home/yao/web
@@ -18,7 +19,7 @@ var DEFAULT_GAP = 60 ;
 
 export default class Main extends Component {
     constructor () {
-        super() ; 
+        super() ;
         this.state = {
             interval : null,
             info : '',
@@ -36,40 +37,38 @@ export default class Main extends Component {
                 updateDialog: false,
                 installMode: codePush.InstallMode.ON_NEXT_RESUME,
             });
-        });        
+        });
     }
-
-    log(str) {
-        console.log(str) ;
-         store.get('log').then((log) =>  {
-                    if (log == null) log = [] ;
-                    log.push(str) ;
-                    store.set('log', log) ;
-          }) ;
-    }
-
-    oder_success() {
+    
+    oder_success(ret) {
         KeepAwake.deactivate() ;
         let d =  Moment().format('YYYY/MM/DD HH:mm:ss') ;
         let msg = `${d} 预定成功` ;
 
         Alert.alert(msg) ;
-        this.log(msg) ;
+        local_log(msg, true) ;
     }
 
-    order_failed(err) {
-        if (err.message == 'Network request failed') err.message = '网络无法连接' ;        
+    order_failed(err, do_once) {
+        if (err.message == 'Network request failed') err.message = '网络无法连接' ;
 
         let d =  Moment().format('YYYY/MM/DD HH:mm:ss') ;
         let msg = `${d} ${err.message}` ;
 
         this.setState({info : msg}) ;
-        this.log(msg) ;
+        local_log(msg, true) ;
+
+        // 意外失败处理
+        if (err.code != 0)  {
+            remote_log(err.stack + '\n' + JSON.stringify(yihu.debug)) ;
+            //do_once() ;
+        }else {
+            remote_log(msg) ;
+        }
     }
-
-
     
     on_start() {
+
         this.setState({loading : true}) ;
         KeepAwake.activate() ;
 
@@ -79,8 +78,8 @@ export default class Main extends Component {
                 Alert.alert('Error', '请先完成配置') ;
             }else {
                 var do_once = (() => yihu.do_loop(r[0], r[1], r[2])
-                                            .then((r) => this.oder_success())
-                                            .catch((err) => this.order_failed(err)) );
+                                            .then((r) => this.oder_success(r))
+                                            .catch((err) => this.order_failed(err, do_once.bind(this))) );
                 var gap = (r[5] == null ? DEFAULT_GAP : r[5]) ;
 
                  yihu.try_login(r[3], r[4]).then(() => {
@@ -90,7 +89,7 @@ export default class Main extends Component {
                  }).catch(err => {
                     this.setState({loading : false}) ;
                     Alert.alert('Error', '登陆失败,请检查网络连接和账号密码') ;
-                 })                 
+                 })
             }
         }.bind(this))
     }

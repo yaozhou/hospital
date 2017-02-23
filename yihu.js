@@ -1,6 +1,8 @@
 import KeepAwake from 'react-native-keep-awake';
 import {Navigator, Alert} from 'react-native';
 import CacheStore from 'react-native-cache-store';
+import { local_log, remote_log } from './components/util'
+
 
 
 var qs = require('qs') ;
@@ -27,16 +29,11 @@ var URL_ORDER = 'http://www.yihu.com/RegAndArrange/doAddOrder' ;
 
 
 var config = {
-
       
-    patient : {}, // patient ¶ÔÏó
+    patient : {}, 
     hour_ary : [],
 
-   debug : function(msg) {
-      console.log(msg) ;
-      //Alert.alert('debug', msg) ;
-    },
-
+   
   yihu_get : function(url) {
     return fetch(url)
         .then((res) => res.text())        
@@ -102,7 +99,7 @@ do_login : function(auth) {
 },
 
 process_login_ret : function(ret) {
-    this.debug(ret) ;
+    
     return new Promise(function (resolve, reject) {
         ret.Code == 10000 ? resolve() : reject() ;
     }) ;
@@ -120,12 +117,12 @@ process_member_ret : function(mem_html) {
                   sn : v.match(/setDefaultMember\('(.*?)'\)/)[1],
             }
         }) ;
-//        this.debug(mem_list) ;
         resolve(mem_list) ;
     }.bind(this))
 },
 
 query_doc_list : function(mem_html) {
+
     return Promise.all([this.yihu_get(URL_DOC_LIST_1), this.yihu_get(URL_DOC_LIST_2)]) ;
 },
 
@@ -138,13 +135,14 @@ process_doc_list : function(doc_list_html) {
         var doc_list = name_list.map(function(v, idx) {
             return {name : v, sn : sn_list[idx]} ;
         })
-        
-        //this.debug(this.doc_list) ;
+
         resolve(doc_list) ;        
     }.bind(this)) ;
 },
 
 query_doc_status : function(doc_list) {
+    this.debug = {} ;
+
     console.log('query_doc_status') ;
     var param = {            
             sns :  doc_list.map((v) => v.sn).join(','),
@@ -155,44 +153,75 @@ query_doc_status : function(doc_list) {
 },
 
 process_doc_status : function(ret) {
+    this.debug.doc_status = ret ;
+
     return new Promise(function(resolve, reject) {
         if (ret.Code == -10000)  {
             reject({message : '因每分钟访问次数过多，IP已被服务器加入黑名单. (请参考帮助页面)'}) ; return ;
           }
 
-         let doc_status = ret.map(function(e) {
+         let doc_status = ret.map(function(v) {
 
-              var html = e.html.replace(/\r\n/g, '') ;
+              var html = v.html.replace(/\r\n/g, '') ;
 
-              var time = html.match(/<em class="c-f12">.*?<\/em>/g).map(function(e) { 
-                      return e.match(/\((.*?)\)/)[1].trim() ; 
-              }) ;
               
-              var date = html.match(/<em class="c-f16">.*?<\/em>/g).map(function(e) {
+              // 预约时间
+              var time_pre = html.match(/<em class="c-f12">.*?<\/em>/g) ;
+              if (time_pre == null) {
+                  reject({message : 'time string exception', code : 1}) ; return ;
+              }
+
+              var time = time_pre.map(function(e) {
+                      let result = e.match(/\((.*?)\)/) ;       // 找 上午下午标签
+                      if (result != null)
+                          return result[1].trim() ;
+                      else  // 上下午没找到，是新出来的 ‘排班'系统
+                          return e.match(/<em class="c-f12">(.*?)<\/em>/)[1] ;
+              }) ;
+              time = time.filter((v) => v != '排班') ;              
+              
+              // 预约日期
+              var date_pre = html.match(/<em class="c-f16">.*?<\/em>/g) ;
+              if (date_pre  == null) {
+                  reject({message : 'date string exception', code : 2}) ; return ;
+              }
+              var date = date_pre.map(function(e) {
                   return e.match(/<em class="c-f16">(.*?)<\/em>/)[1] ;
               }) ;
+              date = date.filter((v) => v != '下一个') ;
 
-              var status = html.match(/<span class="doc-schedule-stat">.*?<\/span>/g).map(function(e) {
+              // 预约状态
+              var status_pre = html.match(/<span class="doc-schedule-stat">.*?<\/span>/g) ;
+              if (status_pre == null) {
+                  reject({message : 'status string exception', code : 3}) ; return ;
+              }
+              var status = status_pre.map(function(e) {
                   return e.match(/<span class="doc-schedule-stat">(.*?)<\/span>/)[1] ;
               }) ;
+              status = status.filter((v) => v != '放号提醒') ;
 
-              var arrange = html.match(/data-arrangeid='\d+'/g).map(function(e) {
+              // 预约id
+              var arrange_pre = html.match(/data-arrangeid='\d+'/g) ;
+              if (arrange_pre == null) {
+                  reject({message : 'arrange string exception', code : 3}) ;
+              }
+              var arrange = arrange_pre.map(function(e) {
                   return e.match(/data-arrangeid='(\d+)'/)[1] ;
               })
 
+              // 预约子对象
               var apm_ary = [] ;
               time.forEach(function(v, idx) {
-                    apm_ary.push({time : time[idx], date : date[idx], status : status[idx], arrange : arrange[idx] }) ;
+                        apm_ary.push({time : time[idx], date : date[idx], status : status[idx], arrange : arrange[idx] }) ;
               }) ;
 
-              return {sn : e.sn , apm : apm_ary} ;
+              return {sn : v.sn , apm : apm_ary} ;
           }) ;  
         
         console.log(doc_status) ;
-        resolve(doc_status) ;
-        //}else {
-            //reject(new Date() + 'Ã»ÓÐÔ¤Ô¼µ½') ;
-        //}
+        remote_log(JSON.stringify(doc_status));
+
+        resolve(doc_status) ;        
         
     }.bind(this))
 },
@@ -228,27 +257,32 @@ apply_strategy : function(doc_status, stra) {
             }
         }
 
-        reject({message : '没有可预约的医生'}) ;
+       //remot_log('预约失败') ;
+
+        reject({message : '没有可预约的医生', code : 0}) ;
     }.bind(this)) ;
 },
 
-query_day_detail : function(target) {
-    console.log('query_day_detail') ;
+query_day_detail : function(target) {    
     var url = 'http://www.yihu.com/registration/getOrderNumber/arrangeId/' + 
                         target.apm.arrange + '/doctorSn/' + target.doc + '.shtml' ;
     return this.yihu_get(url) ;
 },
 
 process_day_detail : function(html) {
-    console.log('process_day_detail') ;
-     var hour_ary =  html.match(/\{"NumberSN".*?\}/g).map((v) => JSON.parse(v)) ;
-     this.debug(hour_ary) ; 
+     this.debug.day_detail = html ;
 
+     if (html == null) {
+          reject({message : 'day detail null', code : 11}) ; return ;
+     }
+     var ary =  html.match(/\{"NumberSN".*?\}/g) ;
+     var hour_ary = ary.map((v) => JSON.parse(v)) ;
+     
      return hour_ary ;
 },
 
 order : function(patient, hour_ary) {
-    console.log('order') ;
+  
     var arg = hour_ary[0] ;
 
     arg.ArrangeID = this.target.apm.arrange ;
@@ -259,16 +293,18 @@ order : function(patient, hour_ary) {
     arg.province_id = PROVINCE_ID ;
 
     // 调试后门
-    if (patient.name == '周耀' || patient.name == '年娜' || patient.name == '汤启兰')
+    if (patient.name == '周耀' || patient.name == '年娜')
         arg = null ;
 
     return this.yihu_post(URL_ORDER, arg) ;
 },
 
 process_order_result : function(ret) {
+    this.debug.order_result = ret ;
+    
     console.log(ret) ;
     return new Promise(function (resolve, reject) {
-        ret.Code == 10000 ? resolve() : reject() ;
+        ret.Code == 10000 ? resolve(JSON.stringify(this.target)) : reject('成功，但是因为调试原因，没有真正挂号') ;
     }) ;
 },
 
