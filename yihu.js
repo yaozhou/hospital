@@ -50,7 +50,7 @@ var config = {
     header.append('User-Agent', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.82 Safari/537.36') ;
     header.append('X-Requested-With', 'XMLHttpRequest') ;
     
-    var option = { method: 'POST', headers: header, body : qs.stringify(param)} ;
+    var option = { method: 'POST', headers: header,  credentials : 'include',  body : qs.stringify(param)} ;
 
     return fetch(url, option)
                     .then((res) => { return res.text() })
@@ -163,7 +163,6 @@ process_doc_status : function(ret) {
          let doc_status = ret.map(function(v) {
 
               var html = v.html.replace(/\r\n/g, '') ;
-
               
               // 预约时间
               var time_pre = html.match(/<em class="c-f12">.*?<\/em>/g) ;
@@ -178,7 +177,7 @@ process_doc_status : function(ret) {
                       else  // 上下午没找到，是新出来的 ‘排班'系统
                           return e.match(/<em class="c-f12">(.*?)<\/em>/)[1] ;
               }) ;
-              time = time.filter((v) => v != '排班') ;              
+              time = time.filter((v) => v != '排班') ;
               
               // 预约日期
               var date_pre = html.match(/<em class="c-f16">.*?<\/em>/g) ;
@@ -202,12 +201,10 @@ process_doc_status : function(ret) {
 
               // 预约id
               var arrange_pre = html.match(/data-arrangeid='\d+'/g) ;
-              if (arrange_pre == null) {
-                  reject({message : 'arrange string exception', code : 3}) ;
-              }
-              var arrange = arrange_pre.map(function(e) {
-                  return e.match(/data-arrangeid='(\d+)'/)[1] ;
-              })
+              var arrange = [] ;
+              if (arrange_pre != null) { // 有可能只有放号提醒，没有其他日期项
+                  arrange_pre.map((e) => e.match(/data-arrangeid='(\d+)'/)[1]  ) ;
+              } ;
 
               // 预约子对象
               var apm_ary = [] ;
@@ -251,7 +248,8 @@ apply_strategy : function(doc_status, stra) {
                     if (apm == undefined)
                         continue ;
                     
-                    this.target = {doc : doc.sn, apm : apm} ;
+                    this.target = {doc : doc.sn, doc_name : strategy.doc_name, apm : apm} ;
+                    this.debug.target = this.target ;
                     resolve(this.target) ;
                     return ;
             }
@@ -263,22 +261,26 @@ apply_strategy : function(doc_status, stra) {
     }.bind(this)) ;
 },
 
-query_day_detail : function(target) {    
+query_day_detail : function(target) {
     var url = 'http://www.yihu.com/registration/getOrderNumber/arrangeId/' + 
                         target.apm.arrange + '/doctorSn/' + target.doc + '.shtml' ;
     return this.yihu_get(url) ;
 },
 
 process_day_detail : function(html) {
-     this.debug.day_detail = html ;
+      return new Promise(function(resolve, reject) {
+            this.debug.day_detail = html ;
 
-     if (html == null) {
-          reject({message : 'day detail null', code : 11}) ; return ;
-     }
-     var ary =  html.match(/\{"NumberSN".*?\}/g) ;
-     var hour_ary = ary.map((v) => JSON.parse(v)) ;
+           var ary =  html.match(/\{"NumberSN".*?\}/g) ;
+           if (ary == null) {
+                reject({message : '你妹,查询的时候还有号，定的时候就没了', code : 11}) ; return ;
+           }
+           var hour_ary = ary.map((v) => JSON.parse(v)) ;
+           
+           resolve(hour_ary) ;
+      }) ;
+
      
-     return hour_ary ;
 },
 
 order : function(patient, hour_ary) {
@@ -301,10 +303,12 @@ order : function(patient, hour_ary) {
 
 process_order_result : function(ret) {
     this.debug.order_result = ret ;
+
+    let succ_str = `${this.target.apm.date} ${this.target.apm.time} ${this.target.doc_name} 预定成功` ;
     
     console.log(ret) ;
     return new Promise(function (resolve, reject) {
-        ret.Code == 10000 ? resolve(JSON.stringify(this.target)) : reject('成功，但是因为调试原因，没有真正挂号') ;
+        ret.Code == 10000 ? resolve(succ_str) : reject(succ_str + ' 因为调试原因，没有真正挂号') ;
     }) ;
 },
 

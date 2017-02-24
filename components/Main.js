@@ -43,10 +43,13 @@ export default class Main extends Component {
     oder_success(ret) {
         KeepAwake.deactivate() ;
         let d =  Moment().format('YYYY/MM/DD HH:mm:ss') ;
-        let msg = `${d} 预定成功` ;
+        let msg = `${d}: ${ret}` ;
 
+        
+        this.on_stop() ;
         Alert.alert(msg) ;
-        local_log(msg, true) ;
+        local_log(msg) ;
+        remote_log(msg) ;
     }
 
     order_failed(err, do_once) {
