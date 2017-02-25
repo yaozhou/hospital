@@ -52,7 +52,8 @@ export default class Appointment extends Component {
                 strategy.push({
                     // 不能保存idx,因为日期会变更,因而序号会失效，并且医生列表也会有增加和减少
                     doc_sn : this.state.doc_list[doc_idx].sn,
-                    doc_name : this.state.doc_list.name,
+                    // 保存doc_list 只是为了预约时能根据sn匹配到医生的名字，其他地方都不好保存这个列表信息
+                    doc_list : this.state.doc_list,
                     date : this.state.date_list[date_idx],
                 })
             }
@@ -113,15 +114,6 @@ export default class Appointment extends Component {
                 
                 <Content>
                         <List>
-                            <ListItem>
-                                <InputGroup >
-                                    <Input stackedLabel 
-                                            label='查询时间间隔 (如果您不了解此选项，请保持默认)' placeholder='' 
-                                            value={this.state.interval.toString()}
-                                            onChangeText={ (text) => this.setState({interval : text}) }
-                                            />
-                                    </InputGroup>
-                            </ListItem>
                              <ListItem>
                                 <ModalDropdown 
                                         ref='member'

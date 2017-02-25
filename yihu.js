@@ -9,12 +9,12 @@ var qs = require('qs') ;
 
 var HOSPITAL_ID = "1565" ;
 var PROVINCE_ID = '12' ;
-var PART_ID = "5720" ;    
-var BIG_PART_ID ="5" ;
+//var PART_ID = "5720" ;    
+//var BIG_PART_ID ="5" ;
 
 // 儿科 -> 小儿科
-//var PART_ID = "5722" ;
-//var BIG_PART_ID = "80" ;
+var PART_ID = "5722" ;
+var BIG_PART_ID = "80" ;
 
 
 var URL_LOGIN = 'http://www.yihu.com/User/doLogin/' ;
@@ -136,7 +136,7 @@ process_doc_list : function(doc_list_html) {
             return {name : v, sn : sn_list[idx]} ;
         })
 
-        resolve(doc_list) ;        
+        resolve(doc_list) ;
     }.bind(this)) ;
 },
 
@@ -203,7 +203,7 @@ process_doc_status : function(ret) {
               var arrange_pre = html.match(/data-arrangeid='\d+'/g) ;
               var arrange = [] ;
               if (arrange_pre != null) { // 有可能只有放号提醒，没有其他日期项
-                  arrange_pre.map((e) => e.match(/data-arrangeid='(\d+)'/)[1]  ) ;
+                  arrange = arrange_pre.map((e) => e.match(/data-arrangeid='(\d+)'/)[1]  ) ;
               } ;
 
               // 预约子对象
@@ -248,7 +248,12 @@ apply_strategy : function(doc_status, stra) {
                     if (apm == undefined)
                         continue ;
                     
-                    this.target = {doc : doc.sn, doc_name : strategy.doc_name, apm : apm} ;
+                    // 不能直接用配置中保存的名字，因为有一个特殊选项叫"任意"
+                    let doc_name = strategy.doc_list.filter((v) => v.sn == doc.sn)[0].name ;
+
+                    this.target = {doc : doc.sn, doc_name : doc_name, apm : apm} ;
+                   
+
                     this.debug.target = this.target ;
                     resolve(this.target) ;
                     return ;
@@ -278,7 +283,7 @@ process_day_detail : function(html) {
            var hour_ary = ary.map((v) => JSON.parse(v)) ;
            
            resolve(hour_ary) ;
-      }) ;
+      }.bind(this)) ;
 
      
 },
@@ -295,20 +300,23 @@ order : function(patient, hour_ary) {
     arg.province_id = PROVINCE_ID ;
 
     // 调试后门
-    if (patient.name == '周耀' || patient.name == '年娜')
-        arg = null ;
+    if (patient.name == '周耀') {
+        return new Promise(function(resolve, reject) {
+            let succ_str = `${this.target.apm.date} ${this.target.apm.time} ${this.target.doc_name} 模拟预定成功. ` ;
+            reject({message : succ_str}) ;
+        }.bind(this))
+    }       
 
     return this.yihu_post(URL_ORDER, arg) ;
 },
 
 process_order_result : function(ret) {
     this.debug.order_result = ret ;
-
-    let succ_str = `${this.target.apm.date} ${this.target.apm.time} ${this.target.doc_name} 预定成功` ;
-    
+   
+   let succ_str = `${this.target.apm.date} ${this.target.apm.time} ${this.target.doc_name} 预定成功. ` ;
     console.log(ret) ;
     return new Promise(function (resolve, reject) {
-        ret.Code == 10000 ? resolve(succ_str) : reject(succ_str + ' 因为调试原因，没有真正挂号') ;
+        ret.Code == 10000 ? resolve(succ_str) : reject( {message : ret.Message }) ;
     }) ;
 },
 

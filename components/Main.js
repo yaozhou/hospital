@@ -50,6 +50,7 @@ export default class Main extends Component {
         Alert.alert(msg) ;
         local_log(msg) ;
         remote_log(msg) ;
+        this.setState({info : msg}) ;
     }
 
     order_failed(err, do_once) {
@@ -72,7 +73,7 @@ export default class Main extends Component {
     
     on_start() {
 
-        this.setState({loading : true}) ;
+        
         KeepAwake.activate() ;
 
         Promise.all([store.get('patient'), store.get('strategy'), store.get('doc_list'), store.get('name'), store.get('password'), store.get('interval')])
@@ -80,6 +81,8 @@ export default class Main extends Component {
             if (r[0] == null || r[1] == null) {
                 Alert.alert('Error', '请先完成配置') ;
             }else {
+                this.setState({loading : true}) ;
+                
                 var do_once = (() => yihu.do_loop(r[0], r[1], r[2])
                                             .then((r) => this.oder_success(r))
                                             .catch((err) => this.order_failed(err, do_once.bind(this))) );
@@ -107,7 +110,7 @@ export default class Main extends Component {
     render() {
         return (
             <Container>
-                <Header>
+                <Header backgroundColor="#D56F2B">
                         <Button transparent onPress={ () => this.props.navigator.push({
                                         name : 'Options', 
                                         component : Options,
@@ -124,8 +127,8 @@ export default class Main extends Component {
                         <Text>{this.state.info}</Text>
                         {
                             this.state.interval == null ?
-                            <Button block onPress={this.on_start.bind(this)}> 开始 </Button> :
-                            <Button block onPress={this.on_stop.bind(this)}> 结束 </Button>
+                            <Button block warning  onPress={this.on_start.bind(this)}> 开始  (提示:挂号时不要切换出此界面，否则挂号会暂停)</Button> :
+                            <Button block warning onPress={this.on_stop.bind(this)}> 结束 </Button>
                         }
                 <View style={{ flex: 1 }}>
                         <Spinner visible={this.state.loading} textContent={"Loading..."} textStyle={{color: '#FFF'}} />
