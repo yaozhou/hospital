@@ -9,12 +9,12 @@ var qs = require('qs') ;
 
 var HOSPITAL_ID = "1565" ;
 var PROVINCE_ID = '12' ;
-//var PART_ID = "5720" ;    
-//var BIG_PART_ID ="5" ;
+var PART_ID = "5720" ;    
+var BIG_PART_ID ="5" ;
 
 // 儿科 -> 小儿科
-var PART_ID = "5722" ;
-var BIG_PART_ID = "80" ;
+//PART_ID = "5722" ;
+//BIG_PART_ID = "80" ;
 
 
 var URL_LOGIN = 'http://www.yihu.com/User/doLogin/' ;
