@@ -11,6 +11,7 @@ import config from '../config.json' ;
 import Spinner from 'react-native-loading-spinner-overlay';
 import { remote_log, local_log } from './util'
 
+var DialogAndroid = require('react-native-dialogs');
 
 //scp build/yuyue_0.1.0.apk yao@ali:/home/yao/web
 // http://115.29.164.142:8000/yuyue_0.1.0.apk
@@ -53,6 +54,36 @@ export default class Main extends Component {
         this.setState({info : msg}) ;
     }
 
+    dialog() {
+        var options = {
+         "items": [
+            "Twitter",
+            "Google+",
+            "Instagram",
+            "Facebook",
+            "Twitter",
+            "Google+",
+            "Instagram",
+            "Facebook",
+            "Twitter",
+            "Google+",
+            "Instagram",
+            "Facebook",
+
+          ],
+          "title": "Social Networks",
+          itemsCallback : ((id, text) => Alert.alert(id + ": " + text)),
+        };
+         
+        var showDialog = function () {
+          var dialog = new DialogAndroid();
+          dialog.set(options);
+          dialog.show();
+        }
+
+        showDialog() ;
+    }
+
     order_failed(err, do_once) {
         if (err.message == 'Network request failed') err.message = '网络无法连接' ;
 
@@ -72,23 +103,39 @@ export default class Main extends Component {
     }
     
     on_start() {
+//         this.dialog() ;   
+        //yihu.query_hospital('安徽医科')
+            //.then((html) => yihu.process_hospital_list(html)) ;
 
+        //yihu.query_department_list('http://www.yihu.com/hospital/guahao/796699C217914B51BAC188CC3567721D.shtml')
+                //.then((html) => yihu.process_department_list(html)) ;
         
         KeepAwake.activate() ;
 
-        Promise.all([store.get('patient'), store.get('strategy'), store.get('doc_list'), store.get('name'), store.get('password'), store.get('interval')])
+        Promise.all([
+                store.get('patient'), 
+                store.get('hospital'),
+                store.get('department'),
+                store.get('strategy'), 
+                store.get('doc_list'), 
+                store.get('name'), 
+                store.get('password')
+                ])
         .then(function(r) {
             if (r[0] == null || r[1] == null) {
                 Alert.alert('Error', '请先完成配置') ;
             }else {
                 this.setState({loading : true}) ;
+
+                let patient = r[0] ; let hospital = r[1] ; let department = r[2] ;
+                let strategy = r[3] ; let doc_list = r[4] ; let name = r[5] ; let password = r[6] ;
                 
-                var do_once = (() => yihu.do_loop(r[0], r[1], r[2])
+                var do_once = (() => yihu.do_loop(patient, hospital,  department, strategy, doc_list)
                                             .then((r) => this.oder_success(r))
                                             .catch((err) => this.order_failed(err, do_once.bind(this))) );
-                var gap = (r[5] == null ? DEFAULT_GAP : r[5]) ;
+                var gap = DEFAULT_GAP ;
 
-                 yihu.try_login(r[3], r[4]).then(() => {
+                 yihu.try_login(name, password).then(() => {
                         do_once() ;
                         let interval = setInterval(() => do_once(),  gap * 1000) ;
                         this.setState({interval : interval, loading : false}) ;

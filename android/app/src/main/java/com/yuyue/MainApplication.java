@@ -14,6 +14,7 @@ import com.oblador.vectoricons.VectorIconsPackage;
 import com.microsoft.codepush.react.CodePush;
 import com.learnium.RNDeviceInfo.RNDeviceInfo;
 import com.corbt.keepawake.KCKeepAwakePackage;
+import com.aakashns.reactnativedialogs.ReactNativeDialogsPackage;
 
 import java.util.Arrays;
 import java.util.List;
@@ -38,8 +39,8 @@ public class MainApplication extends Application implements ReactApplication {
           new KCKeepAwakePackage(),
           new VectorIconsPackage(),
           new RNDeviceInfo(),
-          new CodePush("", MainApplication.this, BuildConfig.DEBUG)
-
+          new CodePush("", MainApplication.this, BuildConfig.DEBUG),
+          new ReactNativeDialogsPackage()
       );
     }
   };

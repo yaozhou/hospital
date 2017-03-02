@@ -16,15 +16,18 @@ var BIG_PART_ID ="5" ;
 //PART_ID = "5722" ;
 //BIG_PART_ID = "80" ;
 
+//var DOMAIN = "http://www.yihu.com" ;
+
 
 var URL_LOGIN = 'http://www.yihu.com/User/doLogin/' ;
 var URL_MEMBER = 'http://www.yihu.com/Ucenter/accountMemberList.shtml' ;
-var URL_DOC_LIST_1 = 'http://www.yihu.com/DoctorArrange/doGetDoctorList.shtml?hospitalId=' +
-                                         HOSPITAL_ID + '&bigPartId=' + BIG_PART_ID + '&partId=' + PART_ID + '&page=1' ;
-var URL_DOC_LIST_2 = 'http://www.yihu.com/DoctorArrange/doGetDoctorList.shtml?hospitalId=' +
-                                          HOSPITAL_ID + '&bigPartId=' + BIG_PART_ID + '&partId=' + PART_ID + '&page=2' ;
+//var URL_DOC_LIST_1 = 'http://www.yihu.com/DoctorArrange/doGetDoctorList.shtml?hospitalId=' +
+//                                         HOSPITAL_ID + '&bigPartId=' + BIG_PART_ID + '&partId=' + PART_ID + '&page=1' ;
+//var URL_DOC_LIST_2 = 'http://www.yihu.com/DoctorArrange/doGetDoctorList.shtml?hospitalId=' +
+//                                          HOSPITAL_ID + '&bigPartId=' + BIG_PART_ID + '&partId=' + PART_ID + '&page=2' ;
 var URL_DOC_STATUS = 'http://www.yihu.com/DoctorArrange/doGetAllRegListBySns' ;
 var URL_ORDER = 'http://www.yihu.com/RegAndArrange/doAddOrder' ;
+var HOSPITAL_LIST = 'http://www.yihu.com/Search/searchKeyWord' ;
 
 
 
@@ -32,6 +35,9 @@ var config = {
       
     patient : {}, 
     hour_ary : [],
+    hospital_id : null,
+    big_part_id : null,
+    part_id : null,
 
    
   yihu_get : function(url) {
@@ -62,7 +68,66 @@ var config = {
                     
 },
 
-do_loop : function(patient, strategy, doc_list) {
+query_hospital : function(name) {
+    return this.yihu_post(HOSPITAL_LIST, {keyNameLike : name}) ;
+},
+
+process_hospital_list : function(html) {
+    var link_ary = html.match(/data-value=\"(.*?)\"/g) ;
+    var link_list = link_ary.map(function(v) {
+        let t =  v.match(/data-value=\"(.*?)\"/)[1] ;   // hospital/ah/8AA4E6ECDD4D469EAED1A9B38A84483F.shtml
+        let location = t.match(/hospital\/(.*?)\//)[1] ;
+        return t.replace(new RegExp(location, "g"), 'guahao') ;
+    })
+
+    // 过滤name为 医院|科室的格式
+
+    var name_ary = html.match(/class=\"header-relsearch-result\">(.*?)</g) ;
+    var name_list = name_ary.map(function(v) {
+          return  v.match(/class=\"header-relsearch-result\">(.*?)</)[1] ;
+    })
+
+    let ret = [] ;
+    for(var i=0; i<link_list.length; ++i) {
+        let name = name_list[i] ;
+        if (name.indexOf('|') < 0) {
+            ret.push({name : name, link : link_list[i]}) ;
+        }
+    }
+
+    console.log(ret) ;
+    return ret ;
+},
+
+query_department_list : function(hospital_url) {
+      return this.yihu_get(hospital_url) ;
+},
+
+process_department_list : function(html) {
+    //javascript:doGetDoctorList('/DoctorArrange/doGetDoctorList.shtml?hospitalId=1565&bigPartId=19&partId=5697')">肿瘤科</a>    
+
+    var ary =html.match(/javascript:doGetDoctorList\(\'\/DoctorArrange\/doGetDoctorList.shtml\?hospitalId=(\d+)&bigPartId=(\d+)&partId=(\d+)\'\)\">(.*?)<\/a>/g) ;
+    var part_list = ary.map(function(v) {
+        var r = v.match(/hospitalId=(\d+)&bigPartId=(\d+)&partId=(\d+)\'\)\">(.*?)<\/a>/) ;
+        return {
+            hospital_id : r[1],
+            big_part_id : r[2],
+            part_id : r[3],
+            name : r[4]
+        }
+    })
+
+    console.log(part_list) ;
+
+    return part_list ;
+  },
+
+do_loop : function(patient, hospital, department, strategy, doc_list) {
+    this.patient = patient ;
+    this.hospital_id = department.hospital_id ;
+    this.big_part_id = department.big_part_id ;
+    this.part_id = department.part_id ;
+
     return     this.query_doc_status(doc_list)
                   .then((ret) => this.process_doc_status(ret))
                   .then((doc_status) => this.apply_strategy(doc_status, strategy))
@@ -72,7 +137,11 @@ do_loop : function(patient, strategy, doc_list) {
                   .then((ret) => this.process_order_result(ret))                  
 },
 
-  conf_query_doc : function() {
+  conf_query_doc : function(hospital_id, big_part_id, part_id) {
+      this.hospital_id = hospital_id ;
+      this.big_part_id = big_part_id ;
+      this.part_id = part_id ;
+
       return  this.query_doc_list().then((doc_list_html) => this.process_doc_list(doc_list_html))
         
   },
@@ -122,15 +191,22 @@ process_member_ret : function(mem_html) {
 },
 
 query_doc_list : function(mem_html) {
+  var URL_DOC_LIST_1 = 'http://www.yihu.com/DoctorArrange/doGetDoctorList.shtml?hospitalId=' +
+                                         this.hospital_id + '&bigPartId=' + this.big_part_id + '&partId=' + this.part_id + '&page=1' ;
+  var URL_DOC_LIST_2 = 'http://www.yihu.com/DoctorArrange/doGetDoctorList.shtml?hospitalId=' +
+                                          this.hospital_id + '&bigPartId=' + this.big_part_id + '&partId=' + this.part_id + '&page=2' ;
 
-    return Promise.all([this.yihu_get(URL_DOC_LIST_1), this.yihu_get(URL_DOC_LIST_2)]) ;
+  return Promise.all([this.yihu_get(URL_DOC_LIST_1), this.yihu_get(URL_DOC_LIST_2)]) ;
 },
 
 process_doc_list : function(doc_list_html) {
     return new Promise(function(resolve, reject) {
         var html = doc_list_html.join('\r\n') ;
-        var name_list = html.match(/alt=".*?"/g).map((v) => v.match(/alt="(.*?)"/)[1] ) ;
-        var sn_list = html.match(/data-sn=".*?"/g).map((v) => v.match(/data-sn="(.*?)"/)[1]) ;
+        var name_html_ary = html.match(/alt=".*?"/g) ;
+        var name_list = (name_html_ary == null ? [] : name_html_ary.map((v) => v.match(/alt="(.*?)"/)[1] ) ) ;
+
+        var sn_html_ary = html.match(/data-sn=".*?"/g) ;
+        var sn_list = (sn_html_ary == null ? [] : sn_html_ary.map((v) => v.match(/data-sn="(.*?)"/)[1]) ) ;
 
         var doc_list = name_list.map(function(v, idx) {
             return {name : v, sn : sn_list[idx]} ;
@@ -281,6 +357,10 @@ process_day_detail : function(html) {
                 reject({message : '你妹,查询的时候还有号，定的时候就没了', code : 11}) ; return ;
            }
            var hour_ary = ary.map((v) => JSON.parse(v)) ;
+
+          //'province_id':'12',
+          var province_id = html.match(/\'province_id\':\'(.*?)\'/)[1] ;
+          this.province_id = province_id ;
            
            resolve(hour_ary) ;
       }.bind(this)) ;
@@ -297,7 +377,8 @@ order : function(patient, hour_ary) {
     arg.dept_id =  PART_ID ;
     arg.doc_sn = this.target.doc ;
     arg.hosp_id = HOSPITAL_ID ;
-    arg.province_id = PROVINCE_ID ;
+    //arg.province_id = PROVINCE_ID ;
+    arg.province_id = this.province_id ;
 
     // 调试后门
     if (patient.name == '周耀') {

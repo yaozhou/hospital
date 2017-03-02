@@ -20,6 +20,7 @@
     "react-native-cache-store": "^1.0.2",
     "react-native-code-push": "^1.17.0-beta",
     "react-native-device-info": "^0.9.9",
+    "react-native-dialogs": "0.0.19",
     "react-native-keep-awake": "^2.0.2",
     "react-native-loading-spinner-overlay": "^0.4.1",
     "react-native-modal-dropdown": "^0.4.1",

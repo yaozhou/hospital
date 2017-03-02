@@ -51,21 +51,42 @@ export default class Options extends Component {
 
 
     on_appointment() {
-        Promise.all([store.get('name'), store.get('password'), store.get('strategy'), store.get('patient'), store.get('interval')]).then(function(r) {   
-                let name = r[0] ;  let password = r[1] ;
-                let strategy = r[2] ; let patient = r[3] ; let interval = r[4] ;
+        Promise.all([
+                            store.get('name'), 
+                            store.get('password'), 
+                            store.get('patient'),
+                            store.get('hospital'), 
+                            store.get('department'),
+                            store.get('strategy'),
+                    ])
+        .then(function(r) {   
+                let name = r[0] ;  let password = r[1] ; let patient = r[2] ; 
+                let hospital = r[3] ; let department = r[4] ; let strategy = r[5] ;
 
                 if (name == null|| password == null) {
                     Alert.alert('Error', '请先配置健康之路的用户名和密码') ;
                 }else {
-                    this.setState({loading : true}) ;
-                    yihu.login_query_patient(name, password)
-                            .then((patient_list) => this.process_patient_list(patient_list))
-                            .then(() => yihu.conf_query_doc())
-                            .then((doc_list) => this.process_doc_list(doc_list, strategy, patient, interval))
-                            .catch(function(err) {
-                                Alert.alert('获取成员及医生列表出错', err) ;
-                            }.bind(this)) ;
+                     this.props.navigator.push({
+                            name: 'Appointment',
+                            component: Appointment,
+                            params : {
+                                    name : name,
+                                    password : password,
+                                    patient : patient,
+                                    hospital : hospital,
+                                    department : department,
+                                    strategy : strategy,
+                            }
+                     }) ;
+
+                    // this.setState({loading : true}) ;
+                    // yihu.login_query_patient(name, password)
+                    //         .then((patient_list) => this.process_patient_list(patient_list))
+                    //         .then(() => yihu.conf_query_doc())
+                    //         .then((doc_list) => this.process_doc_list(doc_list, strategy, patient, interval))
+                    //         .catch(function(err) {
+                    //             Alert.alert('获取成员及医生列表出错', err) ;
+                    //         }.bind(this)) ;
                 }
         }.bind(this)) ;
     }
