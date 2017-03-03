@@ -10,6 +10,8 @@ import codePush from "react-native-code-push";
 import config from '../config.json' ;
 import Spinner from 'react-native-loading-spinner-overlay';
 import { remote_log, local_log } from './util'
+import SmsListener from 'react-native-android-sms-listener'
+
 
 var DialogAndroid = require('react-native-dialogs');
 
@@ -54,36 +56,6 @@ export default class Main extends Component {
         this.setState({info : msg}) ;
     }
 
-    dialog() {
-        var options = {
-         "items": [
-            "Twitter",
-            "Google+",
-            "Instagram",
-            "Facebook",
-            "Twitter",
-            "Google+",
-            "Instagram",
-            "Facebook",
-            "Twitter",
-            "Google+",
-            "Instagram",
-            "Facebook",
-
-          ],
-          "title": "Social Networks",
-          itemsCallback : ((id, text) => Alert.alert(id + ": " + text)),
-        };
-         
-        var showDialog = function () {
-          var dialog = new DialogAndroid();
-          dialog.set(options);
-          dialog.show();
-        }
-
-        showDialog() ;
-    }
-
     order_failed(err, do_once) {
         if (err.message == 'Network request failed') err.message = '网络无法连接' ;
 
@@ -103,13 +75,10 @@ export default class Main extends Component {
     }
     
     on_start() {
-//         this.dialog() ;   
-        //yihu.query_hospital('安徽医科')
-            //.then((html) => yihu.process_hospital_list(html)) ;
-
-        //yihu.query_department_list('http://www.yihu.com/hospital/guahao/796699C217914B51BAC188CC3567721D.shtml')
-                //.then((html) => yihu.process_department_list(html)) ;
-        
+        // SmsListener.addListener(message => {
+        //     Alert.alert('info', message) ;
+        //   //console.info(message)
+        // })
         KeepAwake.activate() ;
 
         Promise.all([
