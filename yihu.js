@@ -7,10 +7,10 @@ import { local_log, remote_log } from './components/util'
 
 var qs = require('qs') ;
 
-var HOSPITAL_ID = "1565" ;
-var PROVINCE_ID = '12' ;
-var PART_ID = "5720" ;    
-var BIG_PART_ID ="5" ;
+//var HOSPITAL_ID = "1565" ;
+//var PROVINCE_ID = '12' ;
+//var PART_ID = "5720" ;    
+//var BIG_PART_ID ="5" ;
 
 // 儿科 -> 小儿科
 //PART_ID = "5722" ;
@@ -75,9 +75,12 @@ query_hospital : function(name) {
 process_hospital_list : function(html) {
     var link_ary = html.match(/data-value=\"(.*?)\"/g) ;
     var link_list = link_ary.map(function(v) {
-        let t =  v.match(/data-value=\"(.*?)\"/)[1] ;   // hospital/ah/8AA4E6ECDD4D469EAED1A9B38A84483F.shtml
-        let location = t.match(/hospital\/(.*?)\//)[1] ;
-        return t.replace(new RegExp(location, "g"), 'guahao') ;
+        let t =  v.match(/data-value=\"(.*?)\"/)[1] ;   // (hospital)(doctor)/ah/8AA4E6ECDD4D469EAED1A9B38A84483F.shtml
+        let location_pre = t.match(/hospital\/(.*?)\//) ;
+        if (location_pre == null) return null ; // 也有非hosptial 的，如doctor等
+
+        let location = location_pre[1] ;
+        return t.replace(new RegExp(location), 'guahao') ;
     })
 
     // 过滤name为 医院|科室的格式
@@ -90,7 +93,7 @@ process_hospital_list : function(html) {
     let ret = [] ;
     for(var i=0; i<link_list.length; ++i) {
         let name = name_list[i] ;
-        if (name.indexOf('|') < 0) {
+        if (name.indexOf('|') < 0 && link_list[i] != null) {
             ret.push({name : name, link : link_list[i]}) ;
         }
     }
@@ -107,6 +110,7 @@ process_department_list : function(html) {
     //javascript:doGetDoctorList('/DoctorArrange/doGetDoctorList.shtml?hospitalId=1565&bigPartId=19&partId=5697')">肿瘤科</a>    
 
     var ary =html.match(/javascript:doGetDoctorList\(\'\/DoctorArrange\/doGetDoctorList.shtml\?hospitalId=(\d+)&bigPartId=(\d+)&partId=(\d+)\'\)\">(.*?)<\/a>/g) ;
+    if (ary == null) return [] ;
     var part_list = ary.map(function(v) {
         var r = v.match(/hospitalId=(\d+)&bigPartId=(\d+)&partId=(\d+)\'\)\">(.*?)<\/a>/) ;
         return {
@@ -195,8 +199,10 @@ query_doc_list : function(mem_html) {
                                          this.hospital_id + '&bigPartId=' + this.big_part_id + '&partId=' + this.part_id + '&page=1' ;
   var URL_DOC_LIST_2 = 'http://www.yihu.com/DoctorArrange/doGetDoctorList.shtml?hospitalId=' +
                                           this.hospital_id + '&bigPartId=' + this.big_part_id + '&partId=' + this.part_id + '&page=2' ;
+  var URL_DOC_LIST_3 = 'http://www.yihu.com/DoctorArrange/doGetDoctorList.shtml?hospitalId=' +
+                                          this.hospital_id + '&bigPartId=' + this.big_part_id + '&partId=' + this.part_id + '&page=3' ;
 
-  return Promise.all([this.yihu_get(URL_DOC_LIST_1), this.yihu_get(URL_DOC_LIST_2)]) ;
+  return Promise.all([this.yihu_get(URL_DOC_LIST_1), this.yihu_get(URL_DOC_LIST_2), this.yihu_get(URL_DOC_LIST_3)]) ;
 },
 
 process_doc_list : function(doc_list_html) {
@@ -220,12 +226,23 @@ query_doc_status : function(doc_list) {
     this.debug = {} ;
 
     console.log('query_doc_status') ;
-    var param = {            
-            sns :  doc_list.map((v) => v.sn).join(','),
-            hospital_id : HOSPITAL_ID,
-    } ;
 
-     return this.yihu_post(URL_DOC_STATUS, param) ;
+    let promises = [] ;
+
+    for(var i=0; i*10<doc_list.length; ++i) {
+        let min = (i+1)*10 < doc_list.length ? (i+1)*10 : doc_list.length ;
+        let param = { sns : doc_list.slice(i*10, min).map(v => v.sn).join(','), hospital_id : this.hospital_id } ;
+        promises.push(this.yihu_post(URL_DOC_STATUS, param)) ;
+    }
+
+    return Promise.all(promises) ;
+
+    // var param = {            
+    //         sns :  doc_list.map((v) => v.sn).join(','),
+    //         hospital_id : this.hospital_id,
+    // } ;
+
+    //  return this.yihu_post(URL_DOC_STATUS, param) ;
 },
 
 process_doc_status : function(ret) {
@@ -235,6 +252,8 @@ process_doc_status : function(ret) {
         if (ret.Code == -10000)  {
             reject({message : '因每分钟访问次数过多，IP已被服务器加入黑名单. (请参考帮助页面)'}) ; return ;
           }
+
+         ret = ret.reduceRight(function(acc,val){return val.concat(acc)},[]) ;
 
          let doc_status = ret.map(function(v) {
 
@@ -374,9 +393,9 @@ order : function(patient, hour_ary) {
 
     arg.ArrangeID = this.target.apm.arrange ;
     arg.member_sn = patient.sn ;
-    arg.dept_id =  PART_ID ;
+    arg.dept_id =  this.part_id ;
     arg.doc_sn = this.target.doc ;
-    arg.hosp_id = HOSPITAL_ID ;
+    arg.hosp_id = this.hospital_id ;
     //arg.province_id = PROVINCE_ID ;
     arg.province_id = this.province_id ;
 

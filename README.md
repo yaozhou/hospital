@@ -30,3 +30,11 @@ nohup log-server -p 22222 -d /home/yao/develop/app_log &
 
 fetch cookie 处理 credential include
 
+
+
+模拟器输入法
+界面显示不出
+账号密码错没提示
+
+
+

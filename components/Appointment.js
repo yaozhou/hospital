@@ -9,10 +9,8 @@ import store from 'react-native-cache-store';
 import Spinner from 'react-native-loading-spinner-overlay';
 var DialogAndroid = require('react-native-dialogs') ;
 
-
 var STRATEGY_NUM = 3 ;
 var DEFAULT_GAP = 60 ;
-
 
 export default class Appointment extends Component {
       constructor (props) {
@@ -27,31 +25,51 @@ export default class Appointment extends Component {
             patient : this.props.patient,
             strategy : this.props.strategy != null ? this.props.strategy : [],
 
+
             patient_list : [],
             department_list : [],
             doc_list : [],
             date_list : date_list,
+
+            hospital_name : this.props.hospital != null ? this.props.hospital.name : '',
+            loading : false,
         }
     }
 
     componentDidMount() {
-        yihu.login_query_patient(this.props.name, this.props.password).then(patient_list => this.setState({patient_list : patient_list})) ;
+        let prom = [
+            yihu.login_query_patient(this.props.name, this.props.password),
+        ] ;
 
-        if (this.props.hospital != null)
-             yihu.query_department_list("http://www.yihu.com" + this.props.hospital.link).then(html => yihu.process_department_list(html))
-                .then(department_list => this.setState({department_list : department_list})) ;
-
-        let department = this.props.department ;
-        if (department != null) {
-            yihu.conf_query_doc(department.hospital_id, department.big_part_id, department.part_id)
-                    .then(doc_list => this.setState({doc_list : doc_list}) ) ;
+         let department = this.props.department ;
+        if (this.props.hospital != null && department != null) {
+            prom.push(
+                    yihu.query_department_list("http://www.yihu.com" + this.props.hospital.link).then(html => yihu.process_department_list(html))
+                ) ;
+            prom.push(
+                    yihu.conf_query_doc(department.hospital_id, department.big_part_id, department.part_id)
+                )
         }
+
+        this.setState({loading : true}) ;
+        Promise.all(prom).then(function(ret) {
+                this.setState({loading : false}) ;
+                this.setState({patient_list : ret[0]}) ;
+               if (ret[1] != null)
+                    this.setState({department_list : ret[1]}) ;
+                if (ret[2] != null) 
+                    this.setState({doc_list : [{name : '任意', sn : '0'}].concat(ret[2])}) ;
+        }.bind(this))
+        .catch(err => console.log(err)) ;
     }
 
     on_search() {
-        yihu.query_hospital('安徽医科大学')
+        this.setState({loading : true}) ;
+        //yihu.query_hospital(this.state.hospital_name)
+        yihu.query_hospital('华山医院')
             .then(html => yihu.process_hospital_list(html))
             .then(function (hospital_list) {
+                     this.setState({loading : false}) ;
                     let options = {
                         items : hospital_list.map((v) => v.name),
                         title : "医院列表",
@@ -83,32 +101,31 @@ export default class Appointment extends Component {
         let department = this.state.department_list[id] ;
 
         this.clear_strategy() ;
-        
+        this.setState({loading : true, department : department}) ;
         yihu.conf_query_doc(department.hospital_id, department.big_part_id, department.part_id)
-                    .then(doc_list => this.setState({doc_list : doc_list}) ) ;
+                    .then(doc_list => this.setState({doc_list : [{name : '任意', sn : '0'}].concat(doc_list), loading : false}) ) ;
     }
 
     clear_deparment() {
-         this.refs.department.state.selectedIndex = -1 ;
-                this.setState({                        
-                        department : null,
-                        department_list : [],
-                //      doc_list : [],
-                //        strategy : [],
-               }) ;
+        this.refs.department.state.selectedIndex = -1 ;
+        this.setState({                        
+                department : null,
+                department_list : [],                
+       }) ;
 
         this.clear_strategy() ;
     }
 
     on_hospital_selected(hospital) {
         console.log(hospital) ;
-        this.setState({hospital : hospital}) ;
+
         this.clear_deparment() ;
+        this.setState({hospital : hospital, loading : true, hospital_name : hospital.name}) ;
 
         yihu.query_department_list("http://www.yihu.com" + hospital.link)
             .then(html => yihu.process_department_list(html))
             .then(function(department_list) { 
-                    this.setState({department_list : department_list}) ;
+                    this.setState({department_list : department_list, loading : false}) ;
                     console.log(department_list) ;
              }.bind(this)) ;
     }
@@ -125,12 +142,6 @@ export default class Appointment extends Component {
         store.set('patient', patient) ;
         console.log(patient) ;
 
-        // 轮询间隔
-        //var gap = parseInt(this.state.interval) ;
-        //if (isNaN(gap)) gap = DEFAULT_GAP ;
-        //store.set('interval', gap) ;
-        //console.log("gap : " + gap) ;
-
         // hospital
         if (this.state.hospital == null) {
             Alert.alert('Error', '请选择医院') ; return ;
@@ -146,7 +157,7 @@ export default class Appointment extends Component {
         store.set('department', this.state.department_list[department_idx]) ;
         console.log(this.state.department_list[department_idx]) ;
 
-        store.set('doc_list', this.state.doc_list) ;
+        store.set('doc_list', this.state.doc_list.slice(1, this.state.doc_list.length)) ;
         console.log(this.state.doc_list) ;
 
         // 挂号策略
@@ -238,7 +249,7 @@ export default class Appointment extends Component {
                                 <Input 
                                     onChangeText={ (text) => this.setState({hospital_name : text}) }
                                     placeholder='选择医院'
-                                    value={this.state.hospital != null ?  this.state.hospital.name : '' } />
+                                    value={this.state.hospital_name} />
                                 <Button block onPress={this.on_search.bind(this)} > 搜索 </Button>
                             </InputGroup>
                             </ListItem>
@@ -247,7 +258,7 @@ export default class Appointment extends Component {
                                 <ModalDropdown
                                         ref='department'
                                         defaultIndex={ department_idx }
-                                        defaultValue= {"选择科室"}
+                                        defaultValue= {department_idx == -1 ? "选择科室" :  department_name_list[department_idx] }
                                         options={department_name_list}
                                         onSelect={(id, text) => this.on_department_selected(id, text)}
                                         />
@@ -256,6 +267,9 @@ export default class Appointment extends Component {
                             {conf}
                         </List>
                         <Button block onPress={this.on_ok.bind(this)} > 确定 </Button>
+                        <View style={{ flex: 1 }}>
+                                <Spinner visible={this.state.loading} textContent={"Loading..."} textStyle={{color: '#FFF'}} />
+                        </View>
                 </Content>
             </Container>
         );

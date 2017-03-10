@@ -92,8 +92,8 @@ android {
         applicationId "com.yuyue"
         minSdkVersion 16
         targetSdkVersion 22
-        versionCode 10
-        versionName "0.1.0"
+        versionCode 11
+        versionName "0.1.1"
         ndk {
             abiFilters "armeabi-v7a", "x86"
         }

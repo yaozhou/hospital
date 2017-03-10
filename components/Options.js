@@ -22,33 +22,12 @@ export default class Options extends Component {
         }
     }
 
-
-    process_doc_list(doc_list, strategy, patient, interval) {
-            this.setState({loading : false}) ;
-            store.set('doc_list', doc_list)
-            console.log(doc_list) ;
-            let date_list = ['任意'].concat(Range.range(1, 11).map((v) => new Moment().add(v,'d').format("MM/DD") ) ) ;            
-            this.props.navigator.push({
-                    name: 'Appointment',
-                    component: Appointment,
-                    params : {
-                            strategy : strategy,
-                            patient : patient,
-                            patient_list : this.state.patient_list,
-                            doc_list :  [{name : '任意', sn : '0'}].concat(doc_list),
-                            date_list : date_list,
-                            interval : interval,
-                    }
-             }) ;
-    }
-
     process_patient_list(patient_list) {
         console.log('patient list : ' + JSON.stringify(patient_list)) ;
 
         store.set('patient_list', patient_list) ;        
         this.setState({patient_list : patient_list}) ;
     }
-
 
     on_appointment() {
         Promise.all([
@@ -78,15 +57,6 @@ export default class Options extends Component {
                                     strategy : strategy,
                             }
                      }) ;
-
-                    // this.setState({loading : true}) ;
-                    // yihu.login_query_patient(name, password)
-                    //         .then((patient_list) => this.process_patient_list(patient_list))
-                    //         .then(() => yihu.conf_query_doc())
-                    //         .then((doc_list) => this.process_doc_list(doc_list, strategy, patient, interval))
-                    //         .catch(function(err) {
-                    //             Alert.alert('获取成员及医生列表出错', err) ;
-                    //         }.bind(this)) ;
                 }
         }.bind(this)) ;
     }
