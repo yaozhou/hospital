@@ -23,7 +23,7 @@ nohup log-server -p 22222 -d /home/yao/develop/app_log &
 
 
 
-
+It's depreciated now !
 
 
 
